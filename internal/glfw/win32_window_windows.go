@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math"
 	"runtime"
+	"sync"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -764,9 +765,10 @@ func windowProc(hWnd windows.HWND, uMsg uint32, wParam _WPARAM, lParam _LPARAM) 
 				// HACK: We only want one event for Alt Gr, so if we detect
 				//       this sequence we discard this Left Ctrl message now
 				//       and later report Right Alt normally
-				var next _MSG
+				next := getMSG()
+				defer putMSG(next)
 				time := _GetMessageTime()
-				if _PeekMessageW(&next, 0, 0, 0, _PM_NOREMOVE) {
+				if _PeekMessageW(next, 0, 0, 0, _PM_NOREMOVE) {
 					if next.message == _WM_KEYDOWN ||
 						next.message == _WM_SYSKEYDOWN ||
 						next.message == _WM_KEYUP ||
@@ -2138,13 +2140,26 @@ func platformRawMouseMotionSupported() bool {
 	return true
 }
 
+var _msgPool = sync.Pool{New: func() interface{} { return &_MSG{} }}
+
+func getMSG() *_MSG {
+	var msg = _msgPool.Get().(*_MSG)
+	*msg = _MSG{}
+	return msg
+}
+
+func putMSG(m *_MSG) {
+	_msgPool.Put(m)
+}
+
 func platformPollEvents() error {
 	if len(_glfw.errors) > 0 {
 		return _glfw.errors[0]
 	}
 
-	var msg _MSG
-	for _PeekMessageW(&msg, 0, 0, 0, _PM_REMOVE) {
+	msg := getMSG()
+	defer putMSG(msg)
+	for _PeekMessageW(msg, 0, 0, 0, _PM_REMOVE) {
 		if msg.message == _WM_QUIT {
 			// NOTE: While GLFW does not itself post WM_QUIT, other processes
 			//       may post it to this one, for example Task Manager
@@ -2153,8 +2168,8 @@ func platformPollEvents() error {
 				window.inputWindowCloseRequest()
 			}
 		} else {
-			_TranslateMessage(&msg)
-			_DispatchMessageW(&msg)
+			_TranslateMessage(msg)
+			_DispatchMessageW(msg)
 		}
 	}
 

@@ -230,10 +230,11 @@ func createHelperWindow() error {
 		_glfw.platformWindow.deviceNotificationHandle = notify
 	}
 
-	var msg _MSG
-	for _PeekMessageW(&msg, _glfw.platformWindow.helperWindowHandle, 0, 0, _PM_REMOVE) {
-		_TranslateMessage(&msg)
-		_DispatchMessageW(&msg)
+	msg := getMSG()
+	defer putMSG(msg)
+	for _PeekMessageW(msg, _glfw.platformWindow.helperWindowHandle, 0, 0, _PM_REMOVE) {
+		_TranslateMessage(msg)
+		_DispatchMessageW(msg)
 	}
 
 	return nil
