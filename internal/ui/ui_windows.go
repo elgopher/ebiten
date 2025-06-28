@@ -174,6 +174,8 @@ func monitorFromWindowByOS(w *glfw.Window) (*Monitor, error) {
 	return monitorFromWin32Window(window), nil
 }
 
+var monitorsBuffer []*Monitor
+
 func monitorFromWin32Window(w windows.HWND) *Monitor {
 	// Get the current monitor by the window handle instead of the window position. It is because the window
 	// position is not reliable in some cases e.g. when the window is put across multiple monitors.
@@ -190,7 +192,8 @@ func monitorFromWin32Window(w windows.HWND) *Monitor {
 	}
 
 	x, y := int(mi.rcMonitor.left), int(mi.rcMonitor.top)
-	for _, m := range theMonitors.append(nil) {
+	monitorsBuffer = theMonitors.append(monitorsBuffer[:0])
+	for _, m := range monitorsBuffer {
 		mx := m.boundsInGLFWPixels.Min.X
 		my := m.boundsInGLFWPixels.Min.Y
 		if mx == x && my == y {
